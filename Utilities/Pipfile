@@ -1,0 +1,43 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+requests = "*"
+bs4 = "*"
+selenium = "*"
+flask="*"
+flask-migrate="*"
+flask-sqlalchemy="*"
+sqlalchemy-serializer = "*"
+Werkzeug = "2.2.2"
+flask-restful = "*" 
+flask-cors="*"
+python-dotenv="*"
+pandas = "*"
+surprise = "*"
+numpy = "<2.0"
+scikit-learn = "*"
+pymongo = "*"
+
+[dev-packages]
+
+[requires]
+python_version = "3.10"
+ 
+
+[scripts]
+start = "flask run --host=0.0.0.0 --port=5000"
+setuplinux = "export FLASK_APP=app.py && export FLASK_RUN_PORT=5555"
+setupwindows = "set FLASK_APP=app.py && set FLASK_RUN_PORT=5555"
+dbinit = "flask db init"
+dbmigrate = 'flask db migrate -m "initial migration"'
+dbupgrade = "flask db upgrade"
+seed = "python seed.py"
+
+[pipenv]
+# Pipenv configuration directives
+
+[tests]
+pytest = "*"
