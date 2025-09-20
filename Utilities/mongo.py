@@ -16,7 +16,9 @@ def fetch_purchases():
         client = MongoClient(connectionString, serverSelectionTimeoutMS=5000)  # 5 sec timeout
         client.admin.command('ping')  # Force connection check
 
-        db = client["dev"]       # database
+        db_name = os.getenv("MONGO_DB_NAME", "dev");
+        db = client[db_name]
+        #db = client["dev"]       # database
         collection = db["purchases"]  # collection
 
         purchases = list(collection.find({}, {"_id": 0}))

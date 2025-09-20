@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const LOGGER = require("../lib/LOGGER.lib.js");
 const ShoppingList = require('../models/shoppingList.model.js');
+const Purchase = require('../models/Purchase.model.js');
 
 router.post('/', async (req, res) => {
     try {
@@ -243,6 +244,7 @@ router.post('/list/:id/item/purchase/all', async (req, res) => {
     const list = await ShoppingList.findById(id);
     if (!list) return res.status(404).json({ error: 'Shopping list not found' });
 
+    const purchaseHistory = [];
     itemIds?.length > 0 && itemIds?.forEach(i_temId => {
       const item = list.items.id(i_temId);
       item.status = 'purchased';
@@ -253,8 +255,18 @@ router.post('/list/:id/item/purchase/all', async (req, res) => {
       });
   
       list.updatedAt = new Date();
+      purchaseHistory.push({
+        householdId: list.householdId,
+        shoppingListId: id,
+        itemName: item.name,
+        quantity: item.quantity || 1,
+        storeName: item.priceInfo.storeName || '',
+        branch: item.priceInfo.branch || '',
+        purchasedAt: list.updatedAt,
+      })
     });
     await list.save();
+    await Purchase.insertMany(purchaseHistory);
 
     res.status(200).json(list);
   } catch (err) {

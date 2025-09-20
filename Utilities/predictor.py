@@ -20,7 +20,7 @@ def get_top_n(model, household_id='', N=20, boost_days=30, boost_value=0.05):
     )
 
     purchase_counts = (
-        df[df['householdId'] == household_id]
+        df[df['householdId'].astype(str) == str(household_id)]
         .groupby('itemName')
         .size()
         .to_dict()
@@ -79,7 +79,7 @@ def train_model():
         # Create negative samples
         negatives = []
         for h in households:
-            purchased = df[df['householdId'] == h]['itemName'].tolist()
+            purchased = df[df['householdId'].astype(str) == h]['itemName'].tolist()
             candidates = list(set(items) - set(purchased))
             sampled = random.sample(candidates, min(20, len(candidates)))
             for i in sampled:
