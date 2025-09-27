@@ -1,194 +1,201 @@
-# Price extraction and comparison documentation
+# Shopmate
 
-## Overview
-This project is a location-aware shopping basket price comparison system for retail chains.
-It automatically scrapes official retail chain price data, stores it in a database, and lets users compare the total cost of their shopping cart across nearby branches.
+Shopmate is a smart household shopping management application designed to simplify how families and roommates handle their shopping lists.
+It enables collaborative list management, predicts products that may soon be needed using purchase history, and compares basket prices across multiple stores to ensure cost-effective shopping.
+
+---
 
 ## Features
-- Automated Scraping
-Uses selenium with a headless Chrome browser to fetch product files from official retailer websites.
-Supports .gz and .zip compressed XML formats.
 
-- Data Parsing & Storage
-Extracts Store, Chain, and Item details from XML files.
-Stores data in a structured database (SQLAlchemy ORM).
+**Shared Shopping List:** Each household member can create, update, or delete items. All changes are tracked with full history (who updated what and when), with undo support for mistaken actions.
 
-- Shopping Cart Price Comparison
-Users provide a list of items.
-The system computes basket costs across chains.
-Returns the five cheapest branches closest to the user’s location.
+**Purchase Prediction:** A recommendation engine analyzes purchase frequency and recency to suggest items likely needed again soon.
 
-- REST API
-`GET /compare_list` → Returns price comparison for a predefined item list.
-`POST /compare_list` → Accepts a JSON body with custom items.
-Response includes store name, branch, distance, and basket cost.
+**Price Comparison:** Automatically scrapes official retailer price files, parses them, and calculates basket costs across stores. Stores are ranked based on basket completeness: first appear stores where all items are available, followed by stores with one missing item, then two, and so on. This helps users identify the store that best matches their shopping list while comparing basket prices.
 
-## How to seed
-1. cd utilities
-2. pipenv shell
-3. pipenv install
-6. pipenv run dbinit (Run only when migrations folder does not exist)
-7. pipenv run dbmigrate
-8. pipenv run dbupgrade
-9. pipenv run seed (to scrape data)
-10. pipenv run start
+**Mobile-Friendly UI:** Built with React Native + Expo, providing simple navigation, shopping list view, recommendations, and price comparison results.  
 
-## Data Flow
-1. Scraping
-Scraper visits each retailer link (Main.aspx).
-Extracts downloadable XML/ZIP/GZIP product files.
-Parses them into structured JSON.
+---
 
-2. Storage
-Saves data into tables:
-Store → Chain name.
-Chain → Branch info.
-Item → Product details.
+## Technologies Used
 
-3. Comparison
-User’s shopping list is matched against items in the DB.
-System calculates basket cost per branch.
-Returns sorted list (cheapest first, filtered by distance).
+### Frontend (Mobile App - Expo, React Native)
 
-## Example Requests
-`GET /compare_list`
-Returns prices for predefined items:
+**Core Framework:** React, react-native, react-native-web, Expo
 
-`POST /compare_list`
+**Navigation & State:** expo-router, @react-navigation/native, @react-native-async-storage/async-storage
 
-Send custom items list:
-Response example:
-```json
-  [
-    {
-      "storeName": "Kingstore",
-      "branch": "ראשון לציון",
-      "items": [
-        {
-          "code": "12345",
-          "name": "מלפפון פרימיום",
-          "price": 4.5,
-          "unit": 1,
-          "AllowDiscount": true
-        }
-      ]
-    }
-  ]
+**UI & Animations:** react-native-safe-area-context, react-native-reanimated
+
+**Utilities:** Moment (date parsing/formatting), Axios (API calls)
+
+**App Lifecycle & Styling:** expo-splash-screen, expo-font, expo-web-browser
+
+### Backend - Main Server (Node.js, Express.js)
+
+**Core Framework & API:** Express, axios
+
+**Auth & Security:** JWT (jsonwebtoken) for authentication, bcryptjs (password hashing)
+
+**Database:** Mongoose (MongoDB models)
+
+**Configuration & Middleware:** CORS, dotenv
+
+**Development & Utilities:** nodemon (development auto-restart), Winston/Logtail (logging), Faker.js / faker (test data seeding)
+
+### Backend - Utilities Server (Flask, Python)
+
+**Core Framework & API:** Flask, Flask-RESTful (REST endpoints for price comparison & predictions), Flask-CORS (cross-origin support)
+
+**Database & Migrations:** Flask-SQLAlchemy (SQLite ORM for items/chains/stores), Flask-Migrate (schema migrations), Pymongo (reading purchases from MongoDB)
+
+**Scraping & Data Retrieval:** Selenium (scraper with headless Chrome), Requests (downloading XML/ZIP/GZIP files)
+
+**Configuration:** python-dotenv (environment configs)
+
+**Predictions & Data Processing:** Pandas (data wrangling), Surprise (SVD recommender for predictions)
+
+---
+
+## Getting Started
+
+### Clone the repository
+
+```bash
+git clone https://github.com/Shenhavk/Shopmate.git
+cd shopmate
 ```
 
-# Prediction Model Documentation
+---
 
-## Overview
+### Main Server (Node.js)
 
-The Purchase Prediction Model is designed to forecast household shopping needs based on historical transaction data stored in MongoDB. It leverages pandas for data manipulation and implements a scoring system that balances recency and frequency of purchases to determine the likelihood of an item being needed again soon.
+#### Install Dependencies
 
-## Contents
-1. Overview
-2. Data Source
-3. Model Logic
-4. Example
-5. Implementation Highlights
-6. Benefits
-
-## Data Source
-- Database: MongoDB
-
-- Collection: purchases
-
-- Structure: Each purchase document typically contains fields such as:
-```json
-  {
-    "household_id": "684d3028dab5df14d3285146",
-    "shoppingListId": "684d3029dab5df14d328514f",
-    "itemName": "Milk",
-    "quantity": 2,
-    "purchasedAt": "2025-08-05",
-    ...
-  }
-```
-- Data is loaded into a pandas DataFrame for preprocessing:
-```py
-  purchases = list(collection.find({}, {"_id": 0}))
-  df = pd.DataFrame(purchases)
+```bash
+cd server
+npm install
 ```
 
-## Model Logic
-The prediction system assigns a likelihood score to each item a household has purchased in the past. This score is computed from two key signals:
+#### Create `.env` under `/server`
 
-1. Recency Factor
-  - Measures how recently an item was purchased.
+```
+PORT=3000
+MONGO_URI=
+MONGO_URI_DEV_USERNAME=<your_mongo_username>
+MONGO_URI_DEV_PASSWORD=<your_mongo_password>
+MONGO_URI_DEV_CONNECTION_ENDPOINT=<your_mongo_connection_endpoint>
 
-  - Recent purchases indicate a shorter expected time before the next purchase.
+MONGO_URI_DEV_LOCAL=mongodb://localhost:27017/
+JWT_SECRET=<your_jwt_secret>
+```
 
-  - Formula:
-  ```python
-    recency_days = (today - last_purchase_date).days
-    recency_score = max(0, 1 - recency_days / 30)
-    boost += 0.6 * recency_score
-  ```
-  Scaled to 0 → 1 (items bought today = high score; items not bought in >30 days = low score).
+#### Run the server
 
-  Weighted 60% of total score.
+```bash
+npm run dev
+```
 
-2. Frequency Factor
+#### Seeding & Purchase History
+##### To create 50 households with shopping lists, open in browser
+```
+http://localhost:3000/api/seed
+```
+##### After seeding, generate purchase history for model preparation (do this frequently)
+```
+http://localhost:3000/api/predictionModel
+```
 
-  - Measures how often an item is purchased historically.
+---
 
-  - Items purchased frequently are more likely to be repeat buys.
+### Client (React Native + Expo)
 
-  - Formula:
-  ```python
-    freq_score = purchase_counts.get(item, 0) / max_freq
-    boost += 0.4 * freq_score
-  ```
-  Normalized by dividing item frequency by the most frequently purchased item.
+#### Install Dependencies
 
-  Scaled to 0 → 1.
+```bash
+cd client
+npm install
+```
 
-  Weighted 40% of total score.
+#### Configure your computer's IP address inside `/constants/config.js`
 
-3. Final Scoring
+```
+export const IP_ADDR = "<Your IP address>";
+export const API_URL = `http://${IP_ADDR}:3000`;
+```
 
-  The overall likelihood score is a weighted combination:
+#### Run the app
 
-  ```python
-    score = 0.6 * recency_score + 0.4 * freq_score
-  ```
-  Items are then ranked by this score to generate predicted shopping lists.
+```bash
+npm start
+```
 
-## Example
-Suppose a household purchase history contains:
-| Item  | Last Purchase | Purchase Count |
-| ----- | ------------- | -------------- |
-| Milk  | 1 day ago     | 50             |
-| Bread | 7 days ago    | 30             |
-| Eggs  | 20 days ago   | 15             |
-| Sugar | 60 days ago   | 5              |
+#### Use Expo Go on a mobile device, or launch on Android/iOS simulator.
 
-Milk: Very recent + very frequent → High score
+---
 
-Bread: Moderate recency + high frequency → High-mid score
+### Utilities Server (Python + Flask)
 
-Eggs: Older purchase but moderately frequent → Mid score
+#### Install Dependencies
 
-Sugar: Very old + low frequency → Low score
+```bash
+cd utilities
+pipenv shell
+pipenv install
+```
 
-The model would recommend Milk, Bread, and Eggs, but not Sugar.
+#### Create `.env` under `/utilities`
 
-## Implementation Highlights
+```
+FLASK_APP=app.py
+FLASK_RUN_PORT=5000
+MONGO_URI_DEV_USERNAME=<your_mongo_username>
+MONGO_URI_DEV_PASSWORD=<your_mongo_password>
+MONGO_URI_DEV_CONNECTION_ENDPOINT=<your_mongo_connection_endpoint>
 
-1. MongoDB Connection
-1. Connects with credentials, checks connection with ping.
-1. DataFrame Creation
-1. Converts MongoDB results into pandas DataFrame.
-1. Purchase Analysis
-1. Groups by item to calculate purchase counts and last purchase dates.
-1. Scoring System
-1. Applies recency and frequency boosts.
-1. Prediction Output
-1. Returns ranked items as predictions.
+MONGO_URI_DEV_LOCAL=mongodb://127.0.0.1:27017/
+MONGO_DB_NAME=<your_db_name>
+```
 
-## Benefits
-1. Lightweight: No heavy ML training needed; purely satistical scoring.
-1. Dynamic: Works in real-time with live MongoDB data.
-1. Customizable: Weights (recency vs frequency) can be tuned per household.
+#### Initialize database and scrape data
+
+```bash
+pipenv run dbinit      # only if first run
+pipenv run dbmigrate
+pipenv run dbupgrade
+pipenv run seed        # downloads and parses retailer price data
+```
+
+#### Run the service
+
+```bash
+pipenv run start
+```
+
+#### Model Training
+##### To train the model (should be done frequently), open in browser
+```
+http://<ipaddr>:5000/api/prediction/model/train
+```
+##### This takes purchase history from MongoDB, preprocesses it, and trains the recommendation model.
+
+---
+
+## Project Structure
+
+**/client/:** React Native mobile app (Expo)
+
+**/server/:** Node.js backend (authentication, households, shopping lists, purchases)
+
+**/utilities/:** Python Flask utilities service (scraper, price comparison, predictions)
+
+**README.md:** Project documentation
+
+```
+Shopmate/
+│
+├── client/           # React Native frontend
+├── server/           # Node.js main server
+├── utilities/        # Python Flask utilities server
+└── README.md         # Documentation
+```
