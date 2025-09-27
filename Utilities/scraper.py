@@ -137,8 +137,8 @@ class Scraper:
         db.session.commit()
 
         file_entries = self.get_file_links()
-        #for entry in file_entries[:6]:  # change slice to process more files
-        for entry in file_entries:  # change slice to process more files
+        for entry in file_entries[:6]:  # change slice to process more files
+        #for entry in file_entries:  # change slice to process more files
             try:
                 dl_url = self.get_download_url(entry["filename"])
                 print('✅ Download URL:', dl_url)
